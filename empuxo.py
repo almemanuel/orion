@@ -47,54 +47,44 @@ def __is_valid__(num, msg):
     return __notAccept__(num, msg)
 
 
-# Propriedades do Combustível e do Gás de Exaustão
-R_univ = 8.314                   # Constante universal dos gase [unidade: joule kelvin**-1 mole**-1]
-gamma = 1.1332                   # Razão da capacidade de calor de exaustão [unidade: adimensional].
-m_molar = 20e-3                  # Massa molar dos gases de escape [unidade: kilograma mole**-1].
-T_c = 1750.                      # Temperatura do combustível [unidade: kelvin].
-rho_solid = 1792.7               # Densidade do combustível sólido [unidade: kilograma metro**-3].
-n = 0.5                          # Expoente da taxa de queima do combustível [unidade: adimensional].
-a = 3.19e-3 * (8.260e6)**(-n)    # Coeficiente da taxa de queima, sendo que o combustível
-                                 # queima a 3.19 mm s**-1 a 8.260 MPa [unidade: metro segundo**-1 pascal**-n].
-
 # Funções Essenciais
-def __TaxaExpansao__(p_c, p_e, gamma):
+def __TaxaExpansao__(p_c, p_e, g):
     """Expressão da taxa de expansão em função da pressão de saída (Pe).
     Refer: Rocket Propulsion Elements, 8th Edition, Equation 3-25
     Argumentos:
         p_c (escalar):Pressão da câmara [unidade: pascal].
         p_e (escalar): Pressão da saída do bucal [unidade: pascal].
-        gamma (escalar): Razão da capacidade de calor de exaustão [unidade: adimensional].
+        g (escalar): Razão da capacidade de calor de exaustão [unidade: adimensional].
     Retorna:
         Escalar: Taxa de expansão (A_e / A_t) [unidade: adimensional]
     """
-    AtAe = ((gamma + 1) / 2)**(1 / (gamma - 1)) \
-        * (p_e / p_c)**(1 / gamma) \
-        * ((gamma + 1) / (gamma - 1)*( 1 - (p_e / p_c)**((gamma -1) / gamma)))**0.5
+    AtAe = ((g + 1) / 2)**(1 / (g - 1)) \
+        * (p_e / p_c)**(1 / g) \
+        * ((g + 1) / (g - 1)*( 1 - (p_e / p_c)**((g -1) / g)))**0.5
     AeAt = 1/AtAe
     return AeAt
 
-def __RazaoPressoes__(AeAt, gamma):
+def __RazaoPressoes__(AeAt, g):
     """Determina a razão entre a pressão de saída e a pressão na câmara (Pe/Pc) a partir da taxa de expansão (Ae/At). 
 
     Referência: Rocket Propulsion Elements, 8th Edition, Equation 3-25
     Argumentos:
         AeAt (escalar): Taxa de expansão (A_e / A_t) [unidade: adimensional].
-        gamma (escalar): Razão da capacidade de calor de exaustão [unidade: adimensional].
+        g (escalar): Razão da capacidade de calor de exaustão [unidade: adimensional].
     Returna:
         Escalar: Razão das pressões (Pe/Pc) [unidade: adimensional].
     """
-    PePc = fsolve(lambda x: AeAt - __TaxaExpansao__(1., x, gamma), x0=1e-3 / AeAt)[0]
+    PePc = fsolve(lambda x: AeAt - __TaxaExpansao__(1., x, g), x0=1e-3 / AeAt)[0]
     assert PePc < 1
     return PePc
 
 
-def __thrust_coef__(p_c, p_e, gamma, p_a=None, er=None):
+def __thrust_coef__(p_c, p_e, g, p_a=None, er=None):
     if (p_a is None and er is not None) or (er is None and p_a is not None):
         raise ValueError('Both p_a and er must be provided.')
-    C_F = (2 * gamma**2 / (gamma - 1) \
-        * (2 / (gamma + 1))**((gamma + 1) / (gamma - 1)) \
-        * (1 - (p_e / p_c)**((gamma - 1) / gamma))
+    C_F = (2 * g**2 / (g - 1) \
+        * (2 / (g + 1))**((g + 1) / (g - 1)) \
+        * (1 - (p_e / p_c)**((g - 1) / g))
           )**0.5
     if p_a is not None and er is not None:
         C_F += er * (p_e - p_a) / p_c
@@ -119,7 +109,17 @@ def __graphic__(t, p_c, F):
 
 
 ## main
-def empuxo(r_in = 0.015, r_ex = 0.044, L = 1.10, D_t = 0.00708):
+def empuxo(gamma = 1.1332, m_molar = 20e-3, T_c = 1750., rho_solid = 1792.7, n = 0.5, r_in = 0.015, r_ex = 0.044, L = 1.10, D_t = 0.00708):
+
+    # Propriedades do Combustível e do Gás de Exaustão
+    gamma = __is_valid__(gamma, 'razão da capacidade de calor de exaustão')
+    m_molar = __is_valid__(m_molar, 'massa molar dos gases de escape')
+    T_c = __is_valid__(T_c, 'temperatura do combustível')
+    rho_solid = __is_valid__(r_in, 'densidade do combustível sólido')
+    n = __is_valid__(n, 'expoente da taxa de queima do combustível')
+
+    a = 3.19e-3 * (8.260e6)**(-n)    # Coeficiente da taxa de queima, sendo que o combustível
+                                 # queima a 3.19 mm s**-1 a 8.260 MPa [unidade: metro segundo**-1 pascal**-n].
 
     ### Geometria do Grão (cilíndrico com porte circular)
     r_in = __is_valid__(r_in, 'raio interno') # Raio interno do grão [unidade: metro].
