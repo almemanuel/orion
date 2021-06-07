@@ -29,14 +29,20 @@ from proptools import solid
 from proptools import nozzle
 from scipy.optimize import fsolve
 from scipy.integrate import cumtrapz
+# Ignorar o warning
+import warnings
+warnings.filterwarnings('ignore', 'The iteration is not making good progress')
 
 # Tratamento de Erros
-def __notAccept__(num, msg):
-    num = input(f'Valor invalido para {msg}. Tente novamente: ')
-    return __is_valid__(num, msg)
+def notAccept(num, msg):
+    if num == '':
+        num = input(f'Informe um valor para {msg}: ')
+    else:
+        num = input(f'Valor invalido para {msg}. Tente novamente: ')
+    return is_valid(num, msg)
 
 
-def __is_valid__(num, msg):
+def is_valid(num, msg):
     try:
         float(num) > 0
         return float(num)
@@ -44,11 +50,11 @@ def __is_valid__(num, msg):
     except:
         pass
 
-    return __notAccept__(num, msg)
+    return notAccept(num, msg)
 
 
 # Funções Essenciais
-def __TaxaExpansao__(p_c, p_e, g):
+def TaxaExpansao(p_c, p_e, g):
     """Expressão da taxa de expansão em função da pressão de saída (Pe).
     Refer: Rocket Propulsion Elements, 8th Edition, Equation 3-25
     Argumentos:
@@ -64,7 +70,7 @@ def __TaxaExpansao__(p_c, p_e, g):
     AeAt = 1/AtAe
     return AeAt
 
-def __RazaoPressoes__(AeAt, g):
+def RazaoPressoes(AeAt, g):
     """Determina a razão entre a pressão de saída e a pressão na câmara (Pe/Pc) a partir da taxa de expansão (Ae/At). 
 
     Referência: Rocket Propulsion Elements, 8th Edition, Equation 3-25
@@ -74,12 +80,12 @@ def __RazaoPressoes__(AeAt, g):
     Returna:
         Escalar: Razão das pressões (Pe/Pc) [unidade: adimensional].
     """
-    PePc = fsolve(lambda x: AeAt - __TaxaExpansao__(1., x, g), x0=1e-3 / AeAt)[0]
+    PePc = fsolve(lambda x: AeAt - TaxaExpansao(1., x, g), x0=1e-3 / AeAt)[0]
     assert PePc < 1
     return PePc
 
 
-def __thrust_coef__(p_c, p_e, g, p_a=None, er=None):
+def thrust_coef(p_c, p_e, g, p_a=None, er=None):
     if (p_a is None and er is not None) or (er is None and p_a is not None):
         raise ValueError('Both p_a and er must be provided.')
     C_F = (2 * g**2 / (g - 1) \
@@ -91,7 +97,7 @@ def __thrust_coef__(p_c, p_e, g, p_a=None, er=None):
     return C_F
 
 
-def __graphic__(t, p_c, F):
+def graphic(t, p_c, F):
     # Plot resultadoss.
     ax1 = plt.subplot(2, 1, 1)
     plt.plot(t, p_c * 1e-6)
@@ -109,25 +115,25 @@ def __graphic__(t, p_c, F):
 
 
 ## main
-def empuxo(gamma = 1.1332, m_molar = 20e-3, T_c = 1750., rho_solid = 1792.7, n = 0.5, r_in = 0.015, r_ex = 0.044, L = 1.10, D_t = 0.00708):
+def empuxo(gamma = '', m_molar = '', T_c = '', rho_solid = '', n = '', r_in = '', r_ex = '', L = '', D_t = ''):
 
     # Propriedades do Combustível e do Gás de Exaustão
-    gamma = __is_valid__(gamma, 'razão da capacidade de calor de exaustão')
-    m_molar = __is_valid__(m_molar, 'massa molar dos gases de escape')
-    T_c = __is_valid__(T_c, 'temperatura do combustível')
-    rho_solid = __is_valid__(r_in, 'densidade do combustível sólido')
-    n = __is_valid__(n, 'expoente da taxa de queima do combustível')
+    gamma = is_valid(gamma, 'razão da capacidade de calor de exaustão')
+    m_molar = is_valid(m_molar, 'massa molar dos gases de escape')
+    T_c = is_valid(T_c, 'temperatura do combustível')
+    rho_solid = is_valid(r_in, 'densidade do combustível sólido')
+    n = is_valid(n, 'expoente da taxa de queima do combustível')
 
     a = 3.19e-3 * (8.260e6)**(-n)    # Coeficiente da taxa de queima, sendo que o combustível
                                  # queima a 3.19 mm s**-1 a 8.260 MPa [unidade: metro segundo**-1 pascal**-n].
 
     ### Geometria do Grão (cilíndrico com porte circular)
-    r_in = __is_valid__(r_in, 'raio interno') # Raio interno do grão [unidade: metro].
-    r_ex = __is_valid__(r_ex, 'raio externo') # Raio externo do grão [unidade: metro].
-    L = __is_valid__(L, 'comprimento') # Comprimento do grão [unidade: metro].
+    r_in = is_valid(r_in, 'raio interno') # Raio interno do grão [unidade: metro].
+    r_ex = is_valid(r_ex, 'raio externo') # Raio externo do grão [unidade: metro].
+    L = is_valid(L, 'comprimento') # Comprimento do grão [unidade: metro].
 
     ### Geometria do Bucal
-    D_t = __is_valid__(D_t, 'diametro da garganta') # Diâmetro da garganta [unidade: metro]
+    D_t = is_valid(D_t, 'diametro da garganta') # Diâmetro da garganta [unidade: metro]
     A_t = np.pi*((D_t)**2) # Área da garganta [unidade: metro**2]
     A_e = 3.94e-5 # Área de saída da garganta [unidade: metro**2].
 
@@ -148,11 +154,11 @@ def empuxo(gamma = 1.1332, m_molar = 20e-3, T_c = 1750., rho_solid = 1792.7, n =
     r = a * p_c**n
 
     # Pressão de saída
-    p_e = p_c * __RazaoPressoes__(A_e / A_t, gamma) #[unidade: pascal]
+    p_e = p_c * RazaoPressoes(A_e / A_t, gamma) #[unidade: pascal]
 
     # Força de Empuxo
     p_a = 101325    # Pressão do ambiente [unidade: pascal]
-    F = A_t * p_c * __thrust_coef__(p_c, p_e, gamma, p_a, A_e / A_t)   # Força de empuxo [unidade: Newton]
+    F = A_t * p_c * thrust_coef(p_c, p_e, gamma, p_a, A_e / A_t)   # Força de empuxo [unidade: Newton]
 #F = nozzle.thrust(A_t, p_c, p_e, gamma, p_a, A_e / A_t)
 
     # Tempo
@@ -160,7 +166,7 @@ def empuxo(gamma = 1.1332, m_molar = 20e-3, T_c = 1750., rho_solid = 1792.7, n =
 
     #t, p_c, F = solid.thrust_curve(A_b, x, A_t, A_e, p_a, a, n, rho_solid, c_star, gamma)
 
-    return __graphic__(t, p_c, F)
+    return graphic(t, p_c, F)
 
 
 fire.Fire(empuxo)
