@@ -114,7 +114,20 @@ def RazaoPressoes(AeAt, g):
     return PePc
 
 
-def thrust_coef(p_c, p_e, g, p_a=None, er=None):
+def coef_empuxo(p_c, p_e, g, p_a=None, er=None):
+    """
+    Coeficiente de Empuxo (Cf) | Referência: Equation 1-33a in Huzel and Huang.
+
+    Parametros:
+    p_c (float) -> Pressão na câmara [unidade: pascal].
+    p_e (float) -> Pressão na saída do bucal [unidade: pascal].
+    g (float) -> Razão da capacidade de calor de exaustão [unidade: adimensional].
+    p_a (float) -> Pressão ambiente [unidade: pascal].
+    AeAt (float) -> Taxa de expansão (A_e / A_t) [unidade: adimensional].
+
+    Retorna:
+    float: C_F -> Coeficiente de Empuxo
+    """
     if (p_a is None and er is not None) or (er is None and p_a is not None):
         raise ValueError('Both p_a and er must be provided.')
     C_F = (2 * g**2 / (g - 1) \
@@ -127,15 +140,25 @@ def thrust_coef(p_c, p_e, g, p_a=None, er=None):
 
 
 def graphic(t, p_c, F):
-    # Plot resultadoss.
+    """
+    Plota os resultados
+
+    Parametros:
+    t (float) -> tempo (segundo)
+    p_c (float) -> pressao na camara (Pascal)
+    F (float) -> força de empuxo (Newton)
+
+    Retorna:
+    def: plt.show() -> gráfico montado
+    """
     ax1 = plt.subplot(2, 1, 1)
     plt.plot(t, p_c * 1e-6)
-    plt.ylabel('Chamber pressure [MPa]')
+    plt.ylabel('Pressao na camara [MPa]')
 
     ax2 = plt.subplot(2, 1, 2)
     plt.plot(t, F * 1e-3)
-    plt.ylabel('Thrust, sea level [kN]')
-    plt.xlabel('Time [s]')
+    plt.ylabel('Impulso (nível do mar) [kN]')
+    plt.xlabel('Tempo [s]')
     plt.setp(ax1.get_xticklabels(), visible=False)
 
     plt.tight_layout()
@@ -144,56 +167,67 @@ def graphic(t, p_c, F):
 
 
 ## main
-def empuxo(gamma = '', m_molar = '', T_c = '', rho_solid = '', n = '', r_in = '', r_ex = '', L = '', D_t = ''):
+def empuxo(gamma = '', m_molar = '', T_c = '', rho = '', n = '', r_in = '', r_ex = '', L = '', D_t = '', A_e = ''):
+    """
+    Insercao e validacao de dados e calculos |
+    Os valores poderão ser informados antes da execução, seguindo o padrao --var value |
+    Exemplo: python empuxo.py --r_in .2 --r_ex '' |
+    Os valores serão testados e, ao final, um gráfico deve ser exibido
+
+    Parametros:
+    (str) gamma -> razão da capacidade de calor de exaustao
+    (str) m_molar -> massa molar dos gases de escape (kg moleˆ-1)
+    (str) T_c -> temperatura do combustivel (K)
+    (str) rho -> densidade do combustivel solido (kg mˆ-3)
+    (str) n -> expoente da taxa de queima do combustivel
+    (str) r_in -> raio interno do grao (m)
+    (str) r_ex -> raio externo do grao (m)
+    (str) L -> comprimento do grao (m)
+    (str) D_t -> diametro da garganta (m)
+    (str) A_e -> area de saida da garganta (mˆ2)
+
+    Retorno:
+    def: graphic(t, p_c, F), onde:
+        (float) t -> tempo (segundos)
+        (float) p_c -> pressao na camara (Pascal)
+        (float) F -> força de empuxoq
+        (Newton)
+    """
 
     # Propriedades do Combustível e do Gás de Exaustão
     gamma = teste(gamma, 'razão da capacidade de calor de exaustão')
-    m_molar = teste(m_molar, 'massa molar dos gases de escape')
-    T_c = teste(T_c, 'temperatura do combustível')
-    rho_solid = teste(r_in, 'densidade do combustível sólido')
+    m_molar = teste(m_molar, 'massa molar dos gases de escape (kg moleˆ-1)')
+    T_c = teste(T_c, 'temperatura do combustível (K)')
+    rho = teste(rho, 'densidade do combustível sólido (kg mˆ-3)')
     n = teste(n, 'expoente da taxa de queima do combustível')
-
-    a = 3.19e-3 * (8.260e6)**(-n)    # Coeficiente da taxa de queima, sendo que o combustível
-                                 # queima a 3.19 mm s**-1 a 8.260 MPa [unidade: metro segundo**-1 pascal**-n].
+    a = 3.19e-3 * (8.260e6)**(-n) # Coeficiente da taxa de queima, sendo que o combustível queima a 3.19 mm s**-1 a 8.260 MPa [unidade: metro segundo**-1 pascal**-n].
 
     ### Geometria do Grão (cilíndrico com porte circular)
-    r_in = teste(r_in, 'raio interno') # Raio interno do grão [unidade: metro].
-    r_ex = teste(r_ex, 'raio externo') # Raio externo do grão [unidade: metro].
-    L = teste(L, 'comprimento') # Comprimento do grão [unidade: metro].
+    r_in = teste(r_in, 'raio interno (m)')
+    r_ex = teste(r_ex, 'raio externo (m)')
+    L = teste(L, 'comprimento (m)')
 
     ### Geometria do Bucal
-    D_t = teste(D_t, 'diametro da garganta') # Diâmetro da garganta [unidade: metro]
+    D_t = teste(D_t, 'diametro da garganta (m)')
+    A_e = teste(A_e, 'area de saida da garganta (mˆ2)')
     A_t = np.pi*((D_t)**2) # Área da garganta [unidade: metro**2]
-    A_e = 3.94e-5 # Área de saída da garganta [unidade: metro**2].
 
-    ### Área de queima do combustível
-    # Evolução da área de combustão
-    x = np.linspace(0, r_ex - r_in)    # Distância em relação ao menor raio em direção ao maior raio, dividido em 50 segmentos [unidade: metro].
-    A_b = 2 * np.pi * (r_in + x) * L   # Área do combustivel sendo queimada por segmento [unidade: metro**2].
+    x = np.linspace(0, r_ex - r_in) # Distância em relação ao menor raio em direção ao maior raio, dividido em 50 segmentos [unidade: metro].
+    A_b = 2 * np.pi * (r_in + x) * L # Área do combustivel sendo queimada por segmento [unidade: metro**2].
     K = A_b / A_t     # Razão da Área de Combustão (A_b) e Área da garganta (A_t)
 
-    ### Velocidade característica (c*)
-    c = nozzle.c_star(gamma, m_molar, T_c)
+    c = nozzle.c_star(gamma, m_molar, T_c) # Velocidade característica (c*)
 
-    ### Cálculo da Pressão na câmara (Pc)
-    p_c = solid.chamber_pressure(A_b / A_t, a, n, rho_solid, c) # [unidade: pascal]
+    p_c = solid.chamber_pressure(A_b / A_t, a, n, rho, c) # pressão na camara em pascal
 
+    r = a * p_c**n # taxa de queima
 
-    # Taxa de queima (r)
-    r = a * p_c**n
+    p_e = p_c * RazaoPressoes(A_e / A_t, gamma) # pressao de saida em pascal
 
-    # Pressão de saída
-    p_e = p_c * RazaoPressoes(A_e / A_t, gamma) #[unidade: pascal]
-
-    # Força de Empuxo
     p_a = 101325    # Pressão do ambiente [unidade: pascal]
-    F = A_t * p_c * thrust_coef(p_c, p_e, gamma, p_a, A_e / A_t)   # Força de empuxo [unidade: Newton]
-#F = nozzle.thrust(A_t, p_c, p_e, gamma, p_a, A_e / A_t)
+    F = A_t * p_c * coef_empuxo(p_c, p_e, gamma, p_a, A_e / A_t)   # Força de empuxo [unidade: Newton]
 
-    # Tempo
-    t = cumtrapz(1 / r, x, initial=0)  # [unidade: segundos]
-
-    #t, p_c, F = solid.thrust_curve(A_b, x, A_t, A_e, p_a, a, n, rho_solid, c_star, gamma)
+    t = cumtrapz(1 / r, x, initial=0)  # tempo em segundos
 
     return graphic(t, p_c, F)
 
